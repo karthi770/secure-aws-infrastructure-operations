@@ -59,5 +59,17 @@ Resources:
 Outputs:
   VpcId:
     Value: !Ref Vpc
+    Export:
+      Name: !Sub '${EnvName}-VpcId'
   PublicSubnetId:
     Value: !Ref PublicSubnet
+    Export:
+      Name: !Sub '${EnvName}-PublicSubnetId'
+  PublicRouteTableId:
+    Value: !Ref PublicRouteTable
+    Export:
+      Name: !Sub '${EnvName}-PublicRouteTableId'
+  VpcCidr:
+    Value: !Ref VpcCidr
+    Export:
+      Name: !Sub '${EnvName}-VpcCidr'
