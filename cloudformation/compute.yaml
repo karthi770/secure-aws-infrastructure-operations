@@ -1,0 +1,74 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Security group, SSM role and EC2 instance for one environment
+Parameters:
+  EnvName:
+    Type: String
+    AllowedValues: [dev, prod]
+  PeerCidr:
+    Type: String
+  LatestAmiId:
+    Type: AWS::SSM::Parameter::Value<AWS::EC2::Image::Id>
+    Default: /aws/service/ami-amazon-linux-latest/al2023-ami-kernel-default-x86_64
+Resources:
+  InstanceSg:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: !Sub '${EnvName} app server - ICMP from peer VPC only'
+      VpcId:
+        Fn::ImportValue: !Sub '${EnvName}-VpcId'
+      SecurityGroupIngress:
+        - IpProtocol: icmp
+          FromPort: -1
+          ToPort: -1
+          CidrIp: !Ref PeerCidr
+          Description: Ping from peer VPC
+      SecurityGroupEgress:
+        - IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
+          CidrIp: 0.0.0.0/0
+          Description: HTTPS for SSM and updates
+        - IpProtocol: icmp
+          FromPort: -1
+          ToPort: -1
+          CidrIp: !Ref PeerCidr
+          Description: Ping to peer VPC
+      Tags:
+        - {Key: Name, Value: !Sub '${EnvName}-app-sg'}
+  InstanceRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: ec2.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore
+  InstanceProfile:
+    Type: AWS::IAM::InstanceProfile
+    Properties:
+      Roles:
+        - !Ref InstanceRole
+  AppServer:
+    Type: AWS::EC2::Instance
+    Properties:
+      ImageId: !Ref LatestAmiId
+      InstanceType: t3.micro
+      IamInstanceProfile: !Ref InstanceProfile
+      SubnetId:
+        Fn::ImportValue: !Sub '${EnvName}-PublicSubnetId'
+      SecurityGroupIds:
+        - !Ref InstanceSg
+      MetadataOptions:
+        HttpTokens: required
+      Tags:
+        - {Key: Name, Value: !Sub '${EnvName}-app-server'}
+        - {Key: Environment, Value: !Ref EnvName}
+Outputs:
+  InstanceId:
+    Value: !Ref AppServer
+  PrivateIp:
+    Value: !GetAtt AppServer.PrivateIp
