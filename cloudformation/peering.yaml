@@ -1,0 +1,22 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: VPC peering between dev and prod, with routes on both sides
+Resources:
+  DevProdPeering:
+    Type: AWS::EC2::VPCPeeringConnection
+    Properties:
+      VpcId: !ImportValue dev-VpcId
+      PeerVpcId: !ImportValue prod-VpcId
+      Tags:
+        - {Key: Name, Value: dev-prod-peering}
+  DevToProdRoute:
+    Type: AWS::EC2::Route
+    Properties:
+      RouteTableId: !ImportValue dev-PublicRouteTableId
+      DestinationCidrBlock: !ImportValue prod-VpcCidr
+      VpcPeeringConnectionId: !Ref DevProdPeering
+  ProdToDevRoute:
+    Type: AWS::EC2::Route
+    Properties:
+      RouteTableId: !ImportValue prod-PublicRouteTableId
+      DestinationCidrBlock: !ImportValue dev-VpcCidr
+      VpcPeeringConnectionId: !Ref DevProdPeering
